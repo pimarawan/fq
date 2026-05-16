@@ -154,6 +154,7 @@ bool platform_readdir(platform_dir_iter_t *iter, platform_file_info_t *info) {
 
     info->size = ((uint64_t)iter->find_data.nFileSizeHigh << 32) | iter->find_data.nFileSizeLow;
     info->mtime = iter->find_data.ftLastWriteTime;
+    info->ctime = iter->find_data.ftCreationTime;
     info->is_directory = (iter->find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     info->is_symlink = (iter->find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
 

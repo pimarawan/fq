@@ -45,6 +45,8 @@ void print_usage(const char *program_name) {
     printf("      --size <size>   Exact file size, or +size (larger), -size (smaller)\n");
     printf("      --after <date>  Files modified after date (YYYY-MM-DD)\n");
     printf("      --before <date> Files modified before date (YYYY-MM-DD)\n");
+    printf("      --created-after <date>   Files created after date (YYYY-MM-DD)\n");
+    printf("      --created-before <date>  Files created before date (YYYY-MM-DD)\n");
     printf("  -d, --max-depth <n> Maximum recursion depth (0 = no recursion, default = unlimited)\n");
     printf("      --max-results <n>   Maximum number of results (0 = unlimited)\n\n");
 
@@ -267,6 +269,26 @@ int parse_command_line(int argc, char *argv[], search_criteria_t *criteria, cli_
                 return -1;
             }
             criteria->has_before_time = true;
+        } else if (strcmp(argv[i], "--created-after") == 0) {
+            if (++i >= argc) {
+                criteria_cleanup(criteria);
+                return -1;
+            }
+            if (parse_date_arg(argv[i], &criteria->after_ctime) != 0) {
+                criteria_cleanup(criteria);
+                return -1;
+            }
+            criteria->has_after_ctime = true;
+        } else if (strcmp(argv[i], "--created-before") == 0) {
+            if (++i >= argc) {
+                criteria_cleanup(criteria);
+                return -1;
+            }
+            if (parse_date_arg(argv[i], &criteria->before_ctime) != 0) {
+                criteria_cleanup(criteria);
+                return -1;
+            }
+            criteria->has_before_ctime = true;
         } else if (strcmp(argv[i], "--max-results") == 0) {
             if (++i >= argc) {
                 criteria_cleanup(criteria);

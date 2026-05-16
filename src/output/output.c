@@ -56,6 +56,11 @@ static void output_json_format(FILE *fp, const search_result_t *results, size_t 
         format_filetime_iso(&current->mtime, time_buffer, sizeof(time_buffer));
         fputs("      \"modified\": ", fp);
         json_escape_string(fp, time_buffer);
+        fputs(",\n", fp);
+
+        format_filetime_iso(&current->ctime, time_buffer, sizeof(time_buffer));
+        fputs("      \"created\": ", fp);
+        json_escape_string(fp, time_buffer);
         fputs("\n", fp);
 
         fputs("    }", fp);

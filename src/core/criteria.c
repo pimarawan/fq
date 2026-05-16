@@ -135,6 +135,11 @@ bool criteria_validate(const search_criteria_t *criteria) {
         return false;
     }
 
+    if (criteria->has_after_ctime && criteria->has_before_ctime &&
+        CompareFileTime(&criteria->after_ctime, &criteria->before_ctime) > 0) {
+        return false;
+    }
+
     return true;
 }
 
@@ -194,6 +199,22 @@ bool criteria_time_matches(const FILETIME *file_time, const search_criteria_t *c
 
     if (criteria->has_before_time &&
         CompareFileTime(file_time, &criteria->before_time) > 0) {
+        return false;
+    }
+
+    return true;
+}
+
+bool criteria_ctime_matches(const FILETIME *file_time, const search_criteria_t *criteria) {
+    if (!file_time || !criteria) return true;
+
+    if (criteria->has_after_ctime &&
+        CompareFileTime(file_time, &criteria->after_ctime) < 0) {
+        return false;
+    }
+
+    if (criteria->has_before_ctime &&
+        CompareFileTime(file_time, &criteria->before_ctime) > 0) {
         return false;
     }
 

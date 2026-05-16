@@ -61,6 +61,7 @@ typedef struct {
     wchar_t *name_wide;
     uint64_t size;
     FILETIME mtime;
+    FILETIME ctime;
     bool is_directory;
     bool is_symlink;
 } platform_file_info_t;
