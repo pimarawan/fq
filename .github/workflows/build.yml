@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Windows / GCC (MinGW64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2 / MinGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            make
+
+      - name: Build (GNU make, GCC)
+        run: make
+
+      - name: Smoke test - --version
+        run: ./build/fq.exe --version
+
+      - name: Smoke test - --help mentions --created-after / --created-before
+        run: |
+          ./build/fq.exe --help > help.txt
+          grep -q 'created-after' help.txt || (echo "ERROR: --created-after not in --help" && exit 1)
+          grep -q 'created-before' help.txt || (echo "ERROR: --created-before not in --help" && exit 1)
+
+      - name: Smoke test - JSON output includes "created" field
+        run: |
+          ./build/fq.exe . --max-results 3 --json > out.json
+          cat out.json
+          grep -q '"created"' out.json || (echo "ERROR: 'created' field missing in JSON output" && exit 1)
+          grep -q '"modified"' out.json || (echo "ERROR: 'modified' field missing in JSON output" && exit 1)
+
+      - name: Smoke test - --created-after returns results for past date
+        run: |
+          ./build/fq.exe . --created-after 2000-01-01 --max-results 3 --json > past.json
+          cat past.json
+          grep -q '"path"' past.json || (echo "ERROR: expected at least one result for past date" && exit 1)
+
+      - name: Smoke test - --created-after returns 0 results for future date
+        run: |
+          ./build/fq.exe . --created-after 2099-01-01 --max-results 3 --json > future.json
+          cat future.json
+          # 'count: 0' must appear; using grep to check the JSON envelope.
+          grep -q '"count": 0' future.json || (echo "ERROR: expected count=0 for future date" && exit 1)
+
+      - name: Smoke test - --created-before accepts a date and runs cleanly
+        run: ./build/fq.exe . --created-before 2099-12-31 --max-results 3 --json
+
+      - name: Regression - existing --after still works
+        run: |
+          ./build/fq.exe . --after 2000-01-01 --max-results 3 --json > after.json
+          cat after.json
+          grep -q '"path"' after.json || (echo "ERROR: --after regression" && exit 1)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fq-mingw64
+          path: build/fq.exe
+          if-no-files-found: error

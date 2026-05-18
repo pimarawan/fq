@@ -100,7 +100,7 @@ static bool should_skip_directory(const char *dirname, const search_criteria_t *
     return false;
 }
 
-search_result_t* create_search_result(const char *path, bool is_directory, uint64_t size, FILETIME mtime) {
+search_result_t* create_search_result(const char *path, bool is_directory, uint64_t size, FILETIME mtime, FILETIME ctime) {
     if (!path) return NULL;
 
     search_result_t *result = malloc(sizeof(search_result_t));
@@ -120,12 +120,13 @@ search_result_t* create_search_result(const char *path, bool is_directory, uint6
     result->is_directory = is_directory;
     result->size = size;
     result->mtime = mtime;
+    result->ctime = ctime;
     result->next = NULL;
 
     return result;
 }
 
-static bool add_result_safe(search_context_t *ctx, const char *path, bool is_directory, uint64_t size, FILETIME mtime) {
+static bool add_result_safe(search_context_t *ctx, const char *path, bool is_directory, uint64_t size, FILETIME mtime, FILETIME ctime) {
     if (!ctx || !path) return false;
 
     if (atomic_load(&ctx->should_stop)) {
@@ -138,7 +139,7 @@ static bool add_result_safe(search_context_t *ctx, const char *path, bool is_dir
         return false;
     }
 
-    search_result_t *result = create_search_result(path, is_directory, size, mtime);
+    search_result_t *result = create_search_result(path, is_directory, size, mtime, ctime);
     if (!result) return false;
 
     bool continue_search = true;
@@ -173,6 +174,7 @@ static bool matches_file_criteria(const platform_file_info_t *file_info, const s
 
     if (!criteria_size_matches(file_info->size, criteria)) return false;
     if (!criteria_time_matches(&file_info->mtime, criteria)) return false;
+    if (!criteria_ctime_matches(&file_info->ctime, criteria)) return false;
     if (!criteria_extension_matches(file_info->name, criteria)) return false;
     if (!criteria_file_type_matches(file_info->name, criteria)) return false;
 
@@ -190,6 +192,7 @@ static bool matches_directory_criteria(const platform_file_info_t *file_info, co
     if (!file_info || !criteria) return false;
 
     if (!criteria_time_matches(&file_info->mtime, criteria)) return false;
+    if (!criteria_ctime_matches(&file_info->ctime, criteria)) return false;
 
     if (criteria->search_term && *criteria->search_term) {
         if (!pattern_matches(file_info->name, criteria->search_term,
@@ -247,7 +250,7 @@ static void process_directory_work(void *context, void *user_data) {
 
             if (!should_skip_directory(file_info.name, ctx->criteria)) {
                 if (ctx->criteria->include_directories && matches_directory_criteria(&file_info, ctx->criteria)) {
-                    add_result_safe(ctx, full_path, true, 0, file_info.mtime);
+                    add_result_safe(ctx, full_path, true, 0, file_info.mtime, file_info.ctime);
                 }
 
                 // Check depth limit before recursing into subdirectory
@@ -273,7 +276,7 @@ static void process_directory_work(void *context, void *user_data) {
             }
         } else {
             if (ctx->criteria->include_files && matches_file_criteria(&file_info, ctx->criteria)) {
-                add_result_safe(ctx, full_path, false, file_info.size, file_info.mtime);
+                add_result_safe(ctx, full_path, false, file_info.size, file_info.mtime, file_info.ctime);
             }
             atomic_fetch_add(&ctx->processed_files, 1);
         }
