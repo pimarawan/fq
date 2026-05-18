@@ -34,7 +34,21 @@ static DWORD WINAPI thread_pool_worker(LPVOID param) {
 
     for (;;) {
         if (pool->config.stop_flag && atomic_load(pool->config.stop_flag)) {
-            break;
+            // Stop requested. Drain any remaining queued work before exiting,
+            // so wait_completion's (active==0 && queued==0) condition can
+            // converge instead of spinning until --timeout. The work_func
+            // (process_directory_work) has its own stop check at entry and
+            // returns immediately on the cleanup path, so popping orphaned
+            // items is essentially free.
+            EnterCriticalSection(&pool->queue_lock);
+            bool queue_empty = (pool->queue_head == NULL);
+            LeaveCriticalSection(&pool->queue_lock);
+            if (queue_empty) {
+                break;
+            }
+            // Otherwise fall through: a non-empty queue means submit() has
+            // already released the semaphore for each item, so the wait
+            // below will return promptly and we'll pop one more item.
         }
 
         DWORD wait_result = WaitForSingleObject(pool->work_semaphore, INFINITE);
