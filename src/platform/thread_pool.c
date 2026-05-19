@@ -33,7 +33,9 @@ static DWORD WINAPI thread_pool_worker(LPVOID param) {
     thread_pool_t *pool = (thread_pool_t*)param;
 
     for (;;) {
-        if (pool->config.stop_flag && atomic_load(pool->config.stop_flag)) {
+        bool stopping = pool->config.stop_flag &&
+                        atomic_load(pool->config.stop_flag);
+        if (stopping) {
             // Stop requested. Drain any remaining queued work before exiting,
             // so wait_completion's (active==0 && queued==0) condition can
             // converge instead of spinning until --timeout. The work_func
@@ -46,12 +48,21 @@ static DWORD WINAPI thread_pool_worker(LPVOID param) {
             if (queue_empty) {
                 break;
             }
-            // Otherwise fall through: a non-empty queue means submit() has
-            // already released the semaphore for each item, so the wait
-            // below will return promptly and we'll pop one more item.
+            // Otherwise fall through to the wait below. We use a short
+            // timeout (not INFINITE) when stopping because the queue may
+            // be drained between our queue_empty check and the wait: if
+            // another worker pops the last item between (1) and (3), the
+            // semaphore signal that submit() released for that item is
+            // gone and no further signal will arrive, leaving an
+            // INFINITE wait permanently stuck. Polling at 50 ms lets us
+            // re-check stop+queue cheaply.
         }
 
-        DWORD wait_result = WaitForSingleObject(pool->work_semaphore, INFINITE);
+        DWORD wait_ms = stopping ? 50 : INFINITE;
+        DWORD wait_result = WaitForSingleObject(pool->work_semaphore, wait_ms);
+        if (wait_result == WAIT_TIMEOUT) {
+            continue;  // re-check stop_flag and queue at loop top
+        }
         if (wait_result != WAIT_OBJECT_0) {
             break;
         }
