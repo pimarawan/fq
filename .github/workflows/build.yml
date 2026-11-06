@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: ['**']
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
 
@@ -27,7 +27,14 @@ jobs:
             make
 
       - name: Build (GNU make, GCC)
-        run: make
+        run: make build/fq.exe build/unit.exe
+
+      - name: Unit tests
+        run: ./build/unit.exe
+
+      - name: End-to-end tests
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File test/run.ps1 build/fq.exe
 
       - name: Smoke test - --version
         run: ./build/fq.exe --version
