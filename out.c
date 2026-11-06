@@ -295,7 +295,7 @@ void out_finish(OutBuf *bufs, int n)
     for (int i = 0; i < n; i++) {
         for (size_t j = 0; j < bufs[i].nrec; j++) {
             const Rec *r = &bufs[i].recs[j];
-            char mod[32], cre[32];
+            char mod[48], cre[48];
             iso_time(r->mtime, mod, sizeof mod);
             iso_time(r->ctime, cre, sizeof cre);
             puta(&buf, &len, &cap, "    {\n      \"path\": ");
